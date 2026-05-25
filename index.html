@@ -15,7 +15,7 @@
 }
 html,body{
   width:100%;height:100%;overflow:hidden;
-  background:#000;
+  background:#fff;
   font-family:'Georgia',serif;
   color:var(--text);
   user-select:none;
@@ -397,15 +397,15 @@ function rr(x,y,w,h,r){
 function drawBg(){
   // deep dark base
   const bg=cx.createRadialGradient(W/2,H*.45,0,W/2,H*.45,Math.max(W,H)*.9);
-  bg.addColorStop(0,'#1c170f');
-  bg.addColorStop(.45,'#0c0b08');
-  bg.addColorStop(1,'#000000');
+  bg.addColorStop(0,'#ffffff');
+  bg.addColorStop(.45,'#f7f7f2');
+  bg.addColorStop(1,'#ece9df');
   cx.fillStyle=bg; cx.fillRect(0,0,W,H);
 
   // table surface reflection
   const tbl=cx.createLinearGradient(0,H*.5,0,H);
-  tbl.addColorStop(0,'rgba(28,22,14,.85)');
-  tbl.addColorStop(1,'rgba(6,5,3,.95)');
+  tbl.addColorStop(0,'rgba(255,255,255,.9)');
+  tbl.addColorStop(1,'rgba(235,232,222,.95)');
   cx.fillStyle=tbl; cx.fillRect(0,H*.5,W,H*.5);
 
   // overhead lamp cone
@@ -793,7 +793,7 @@ function showDeath(pNum){
   document.getElementById('msg-box').style.display='none';
   document.getElementById('turn-ind').textContent='';
   document.getElementById('death-sub').textContent=
-    `Jugador ${pNum} perdió.  La cámara fatal decidió.`;
+    `Jugador ${pNum} perdió.  La cámara fatal decidió.`;
   cls(`pp${pNum}`,'eliminated',true);
   cls(`pp${pNum}`,'active',false);
 }
@@ -812,7 +812,7 @@ function spin(){
   const land=pool[Math.floor(Math.random()*pool.length)];
   G.selCham[p]=land;
 
-  // target angle: chamber 'land' at 12 o'clock (−π/2)
+  // target angle: chamber 'land' at 12 o'clock (-pi/2)
   const tgt=-(Math.PI/2)-(land/6)*Math.PI*2;
   const revs=8+Math.floor(Math.random()*5);
   const totalDelta=tgt-G.angle[p]+revs*Math.PI*2;
@@ -854,8 +854,8 @@ function endTurn(p,surv,cham){
     emit(px,py,18,'rgba(201,168,76,.9)',4,.8);
     flash('rgba(80,200,100,.35)',.38);
     playSurvive();
-    setMsg(`${pName} sobrevivió`, 'La cámara estaba vacía.  Por ahora.');
-    setTurn(`${pName} sobrevivió — Cambiando turno…`);
+    setMsg(`${pName} sobrevivió`, 'La cámara estaba vacía.  Por ahora.');
+    setTurn(`${pName} sobrevivió - Cambiando turno...`);
     setTimeout(()=>{
       G.player=1-p;
       G.round++;
@@ -901,7 +901,7 @@ function resetGame(){
   document.getElementById('pp1').classList.add('active');
 
   setMsg('El duelo comienza',
-    'Cada turno tiene la misma promesa:  66 % de vida,  34 % de final.');
+    'Cada turno tiene la misma promesa:  66 % de vida,  34 % de final.');
 
   const b=document.getElementById('btn-main');
   b.textContent='Jugar turno'; b.disabled=false;
