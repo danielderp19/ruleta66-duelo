@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ruleta 66: Duelo</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:#c9a84c;
+  --red:#cc2222;
+  --dark:#080806;
+  --text:#e8e0d0;
+  --metal:#5a5a5a;
+}
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:#000;
+  font-family:'Georgia',serif;
+  color:var(--text);
+  user-select:none;
+}
+#gameCanvas{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  display:block;
+}
+#flash{
+  position:fixed;inset:0;pointer-events:none;z-index:50;opacity:0;
+  transition:opacity 0.05s;
+}
+/* Letterbox */
+.lbx{
+  position:fixed;left:0;right:0;height:7.5vh;
+  background:#000;z-index:40;pointer-events:none;
+}
+.lbx-t{top:0}
+.lbx-b{bottom:0}
+/* HUD */
+#hud{
+  position:fixed;inset:0;z-index:30;
+  display:flex;flex-direction:column;
+  pointer-events:none;
+}
+/* Title band */
+#title-band{
+  padding:8.5vh 1rem 0;
+  text-align:center;
+}
+#gtitle{
+  font-size:clamp(1.1rem,3.5vw,2.8rem);
+  letter-spacing:.35em;text-transform:uppercase;
+  color:var(--gold);
+  text-shadow:0 0 18px rgba(201,168,76,.55),0 0 40px rgba(201,168,76,.2);
+  font-weight:normal;
+}
+#gsub{
+  margin:.4em auto 0;max-width:560px;
+  font-size:clamp(.5rem,1.1vw,.8rem);
+  color:rgba(232,224,208,.42);
+  letter-spacing:.12em;line-height:1.7;
+}
+/* Stats row */
+#stats-row{
+  display:flex;justify-content:space-between;align-items:stretch;
+  padding:.8vh 3vw;gap:.6rem;margin-top:.5vh;
+}
+.ppanel{
+  background:rgba(0,0,0,.72);
+  border:1px solid rgba(201,168,76,.15);
+  padding:.6rem 1rem;min-width:120px;
+  transition:border-color .4s,box-shadow .4s;
+}
+.ppanel.active{
+  border-color:rgba(201,168,76,.6);
+  box-shadow:0 0 18px rgba(201,168,76,.22);
+}
+.ppanel.eliminated{
+  border-color:rgba(204,34,34,.5);opacity:.45;
+}
+.pname{
+  font-size:.62rem;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--gold);margin-bottom:.25rem;
+}
+.pstat{font-size:1.3rem}
+.plbl{
+  font-size:.52rem;letter-spacing:.1em;
+  color:rgba(232,224,208,.35);text-transform:uppercase;
+}
+#center-panel{
+  text-align:center;
+  background:rgba(0,0,0,.72);
+  border:1px solid rgba(201,168,76,.12);
+  padding:.6rem 1.4rem;
+}
+.gold-badge{
+  display:inline-block;
+  border:1px solid rgba(201,168,76,.35);
+  padding:.15rem .5rem;
+  font-size:.6rem;letter-spacing:.1em;color:var(--gold);
+  margin-top:.3rem;
+}
+/* Canvas spacer */
+#canvas-space{flex:1}
+/* Bottom area */
+#bottom{
+  display:flex;flex-direction:column;align-items:center;
+  padding:0 1rem 9vh;gap:.7rem;
+  pointer-events:all;
+}
+#turn-ind{
+  font-size:clamp(.6rem,1.6vw,.9rem);
+  letter-spacing:.3em;text-transform:uppercase;
+  color:var(--gold);text-align:center;
+  text-shadow:0 0 10px rgba(201,168,76,.3);
+  min-height:1.2em;
+}
+#msg-box{text-align:center;max-width:480px;padding:0 1rem}
+#msg-main{
+  font-size:clamp(.85rem,2.5vw,1.6rem);
+  letter-spacing:.1em;color:var(--text);
+  text-shadow:0 0 8px rgba(232,224,208,.25);
+  min-height:1.4em;
+}
+#msg-sub{
+  font-size:clamp(.5rem,1.2vw,.8rem);
+  color:rgba(232,224,208,.45);letter-spacing:.1em;
+  line-height:1.6;margin-top:.3rem;min-height:1.2em;
+}
+#death-box{
+  display:none;text-align:center;
+}
+#death-title{
+  font-size:clamp(2rem,7vw,4.5rem);
+  letter-spacing:.35em;text-transform:uppercase;
+  color:var(--red);font-weight:normal;
+  text-shadow:0 0 30px rgba(204,34,34,.9),0 0 70px rgba(204,34,34,.4);
+  animation:deathPulse 1.5s ease-in-out infinite;
+}
+@keyframes deathPulse{
+  0%,100%{text-shadow:0 0 30px rgba(204,34,34,.9),0 0 70px rgba(204,34,34,.4)}
+  50%{text-shadow:0 0 50px rgba(204,34,34,1),0 0 100px rgba(204,34,34,.6),0 0 4px #fff}
+}
+#death-sub{
+  font-size:clamp(.55rem,1.4vw,.85rem);
+  color:rgba(232,224,208,.65);letter-spacing:.15em;margin-top:.5rem;
+}
+/* Buttons */
+.btn{
+  background:transparent;
+  border:1px solid var(--gold);color:var(--gold);
+  font-family:'Georgia',serif;
+  font-size:clamp(.7rem,1.6vw,.9rem);
+  letter-spacing:.2em;text-transform:uppercase;
+  padding:.7rem 2.5rem;cursor:pointer;
+  transition:all .25s;
+}
+.btn:hover:not(:disabled){
+  background:rgba(201,168,76,.08);
+  box-shadow:0 0 18px rgba(201,168,76,.28);
+}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-sm{
+  border-color:rgba(232,224,208,.25);
+  color:rgba(232,224,208,.45);
+  font-size:.62rem;padding:.45rem 1.2rem;
+}
+.btn-sm:hover:not(:disabled){
+  border-color:rgba(232,224,208,.5);
+  color:rgba(232,224,208,.75);
+  background:rgba(232,224,208,.04);
+  box-shadow:none;
+}
+#btn-row{display:flex;gap:.7rem}
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="flash"></div>
+<div class="lbx lbx-t"></div>
+<div class="lbx lbx-b"></div>
+
+<div id="hud">
+  <div id="title-band">
+    <h1 id="gtitle">Ruleta&nbsp;66&nbsp;:&nbsp;Duelo</h1>
+    <p id="gsub">Dos jugadores.&nbsp; Dos armas.&nbsp; Cuatro cámaras vacías por arma.&nbsp; Dos cámaras fatales.&nbsp; El azar decide quién sigue respirando.</p>
+  </div>
+
+  <div id="stats-row">
+    <div class="ppanel active" id="pp1">
+      <div class="pname">Jugador 1</div>
+      <div class="pstat" id="s1">0</div>
+      <div class="plbl">Supervivencias</div>
+    </div>
+    <div id="center-panel">
+      <div class="plbl">Ronda</div>
+      <div class="pstat" id="srnd">1</div>
+      <div class="gold-badge">66 % Supervivencia</div>
+    </div>
+    <div class="ppanel" id="pp2">
+      <div class="pname">Jugador 2</div>
+      <div class="pstat" id="s2">0</div>
+      <div class="plbl">Supervivencias</div>
+    </div>
+  </div>
+
+  <div id="canvas-space"></div>
+
+  <div id="bottom">
+    <div id="turn-ind">Turno del Jugador 1</div>
+    <div id="msg-box">
+      <div id="msg-main">El duelo comienza</div>
+      <div id="msg-sub">Cada turno tiene la misma promesa:&nbsp; 66&nbsp;% de vida,&nbsp; 34&nbsp;% de final.</div>
+    </div>
+    <div id="death-box">
+      <div id="death-title">Niño malo</div>
+      <div id="death-sub">Jugador X perdió.&nbsp; La cámara fatal decidió.</div>
+    </div>
+    <button class="btn" id="btn-main">Jugar turno</button>
+    <div id="btn-row">
+      <button class="btn btn-sm" id="btn-reset">Reiniciar</button>
+      <button class="btn btn-sm" id="btn-snd">Sonido: ON</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ───────────────────── AUDIO ───────────────────── */
+let AC = null, sfxOn = true;
+function ac(){
+  if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
+  if(AC.state==='suspended') AC.resume();
+  return AC;
+}
+function playClicks(dur){
+  if(!sfxOn) return;
+  const ctx=ac(); let t=0,gap=0.055;
+  while(t<dur){
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.setValueAtTime(500+Math.random()*400, ctx.currentTime+t);
+    o.frequency.exponentialRampToValueAtTime(180, ctx.currentTime+t+0.045);
+    g.gain.setValueAtTime(0.22, ctx.currentTime+t);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.045);
+    o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+0.05);
+    gap=Math.min(gap*1.045, 0.28); t+=gap;
+  }
+}
+function playSurvive(){
+  if(!sfxOn) return;
+  const ctx=ac();
+  [[440,0],[554,.14],[659,.3],[880,.5]].forEach(([f,d])=>{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.setValueAtTime(f, ctx.currentTime+d);
+    g.gain.setValueAtTime(.18, ctx.currentTime+d);
+    g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime+d+.5);
+    o.start(ctx.currentTime+d); o.stop(ctx.currentTime+d+.55);
+  });
+}
+function playDeath(){
+  if(!sfxOn) return;
+  const ctx=ac();
+  // boom
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.type='sawtooth';
+  o.connect(g); g.connect(ctx.destination);
+  o.frequency.setValueAtTime(110, ctx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(28, ctx.currentTime+.5);
+  g.gain.setValueAtTime(.9, ctx.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime+2.2);
+  o.start(ctx.currentTime); o.stop(ctx.currentTime+2.2);
+  // noise crack
+  const sz=ctx.sampleRate*.08, buf=ctx.createBuffer(1,sz,ctx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<sz;i++) d[i]=(Math.random()*2-1)*(1-i/sz);
+  const n=ctx.createBufferSource(), ng=ctx.createGain();
+  n.buffer=buf; n.connect(ng); ng.connect(ctx.destination);
+  ng.gain.setValueAtTime(2, ctx.currentTime);
+  ng.gain.exponentialRampToValueAtTime(.001, ctx.currentTime+.08);
+  n.start(ctx.currentTime);
+  // low rumble
+  const o2=ctx.createOscillator(),g2=ctx.createGain();
+  o2.type='sine'; o2.connect(g2); g2.connect(ctx.destination);
+  o2.frequency.setValueAtTime(55, ctx.currentTime+.1);
+  g2.gain.setValueAtTime(.4, ctx.currentTime+.1);
+  g2.gain.exponentialRampToValueAtTime(.001, ctx.currentTime+1.8);
+  o2.start(ctx.currentTime+.1); o2.stop(ctx.currentTime+1.8);
+}
+
+/* ───────────────────── CANVAS ───────────────────── */
+const CVS = document.getElementById('gameCanvas');
+const cx  = CVS.getContext('2d');
+let W, H, DPR;
+function resize(){
+  DPR = window.devicePixelRatio||1;
+  W   = window.innerWidth;
+  H   = window.innerHeight;
+  CVS.width  = W*DPR;
+  CVS.height = H*DPR;
+  CVS.style.width  = W+'px';
+  CVS.style.height = H+'px';
+  cx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ───────────────────── STATE ───────────────────── */
+const G = {
+  player   : 0,
+  round    : 1,
+  surv     : [0,0],
+  spinning : false,
+  over     : false,
+  angle    : [0,0],
+  selCham  : [0,0],
+  fatal    : [[1,4],[2,5]],
+  parts    : [],
+  shake    : 0,
+  shakeX   : 0,
+  shakeY   : 0,
+};
+
+function rndFatal(){
+  const a = Math.floor(Math.random()*6);
+  let b; do{b=Math.floor(Math.random()*6)}while(b===a);
+  return [a,b];
+}
+
+/* ───────────────────── PARTICLES ───────────────────── */
+function emit(x,y,n,col,spd,spread=1){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=spd*(.5+Math.random()*.8);
+    G.parts.push({
+      x,y,
+      vx:Math.cos(a)*s*spread,
+      vy:Math.sin(a)*s-spd*.4,
+      life:1, dec:.012+Math.random()*.02,
+      sz:2+Math.random()*4,
+      col, grav:.12+Math.random()*.1
+    });
+  }
+}
+function emitDust(){
+  if(Math.random()>.7) return;
+  G.parts.push({
+    x:Math.random()*W,
+    y:H*.28+Math.random()*H*.42,
+    vx:(Math.random()-.5)*.25,
+    vy:-.18-Math.random()*.25,
+    life:.4+Math.random()*.7, dec:.003+Math.random()*.003,
+    sz:1+Math.random()*1.8,
+    col:'dust', grav:0
+  });
+}
+function updateParts(){
+  for(let i=G.parts.length-1;i>=0;i--){
+    const p=G.parts[i];
+    p.x+=p.vx; p.y+=p.vy; p.vy+=p.grav||0;
+    p.life-=p.dec;
+    if(p.life<=0) G.parts.splice(i,1);
+  }
+}
+function drawParts(){
+  G.parts.forEach(p=>{
+    cx.save();
+    cx.globalAlpha=Math.max(0,p.life);
+    if(p.col==='dust'){
+      cx.fillStyle=`rgba(201,168,76,${p.life*.45})`;
+    } else {
+      cx.fillStyle=p.col;
+    }
+    cx.beginPath();
+    cx.arc(p.x,p.y,p.sz*Math.max(0,p.life),0,Math.PI*2);
+    cx.fill();
+    cx.restore();
+  });
+}
+
+/* ───────────────────── DRAW HELPERS ───────────────────── */
+function rr(x,y,w,h,r){
+  cx.beginPath();
+  cx.moveTo(x+r,y);
+  cx.lineTo(x+w-r,y);
+  cx.quadraticCurveTo(x+w,y,x+w,y+r);
+  cx.lineTo(x+w,y+h-r);
+  cx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  cx.lineTo(x+r,y+h);
+  cx.quadraticCurveTo(x,y+h,x,y+h-r);
+  cx.lineTo(x,y+r);
+  cx.quadraticCurveTo(x,y,x+r,y);
+  cx.closePath();
+}
+
+/* ───────────────────── BACKGROUND ───────────────────── */
+function drawBg(){
+  // deep dark base
+  const bg=cx.createRadialGradient(W/2,H*.45,0,W/2,H*.45,Math.max(W,H)*.9);
+  bg.addColorStop(0,'#1c170f');
+  bg.addColorStop(.45,'#0c0b08');
+  bg.addColorStop(1,'#000000');
+  cx.fillStyle=bg; cx.fillRect(0,0,W,H);
+
+  // table surface reflection
+  const tbl=cx.createLinearGradient(0,H*.5,0,H);
+  tbl.addColorStop(0,'rgba(28,22,14,.85)');
+  tbl.addColorStop(1,'rgba(6,5,3,.95)');
+  cx.fillStyle=tbl; cx.fillRect(0,H*.5,W,H*.5);
+
+  // overhead lamp cone
+  const lamp=cx.createConicalGradient
+    ? null : null; // not supported everywhere, use radial
+  const lmp=cx.createRadialGradient(W/2,0,0,W/2,H*.18,W*.55);
+  lmp.addColorStop(0,'rgba(255,245,190,.07)');
+  lmp.addColorStop(.6,'rgba(220,190,90,.025)');
+  lmp.addColorStop(1,'rgba(0,0,0,0)');
+  cx.fillStyle=lmp; cx.fillRect(0,0,W,H);
+
+  // table edge line
+  cx.save();
+  cx.globalAlpha=.3;
+  cx.strokeStyle='rgba(100,70,30,.5)';
+  cx.lineWidth=1;
+  cx.beginPath(); cx.moveTo(0,H*.52); cx.lineTo(W,H*.52); cx.stroke();
+  cx.restore();
+
+  // vignette
+  const vig=cx.createRadialGradient(W/2,H/2,H*.15,W/2,H/2,H*.9);
+  vig.addColorStop(0,'rgba(0,0,0,0)');
+  vig.addColorStop(1,'rgba(0,0,0,.88)');
+  cx.fillStyle=vig; cx.fillRect(0,0,W,H);
+
+  // center divider
+  cx.save();
+  cx.globalAlpha=.12;
+  cx.strokeStyle='rgba(201,168,76,1)';
+  cx.lineWidth=1;
+  cx.setLineDash([4,10]);
+  cx.beginPath(); cx.moveTo(W/2,H*.22); cx.lineTo(W/2,H*.78); cx.stroke();
+  cx.setLineDash([]);
+  cx.restore();
+}
+
+/* ───────────────────── GUN ───────────────────── */
+function drawGun(ox,oy,s,active,flip){
+  cx.save();
+  cx.translate(ox,oy);
+  if(flip) cx.scale(-1,1);
+  cx.globalAlpha=active?1:.35;
+
+  // barrel
+  const mG=cx.createLinearGradient(0,-s*.13,0,s*.13);
+  mG.addColorStop(0,active?'#999':'#444');
+  mG.addColorStop(.35,active?'#ccc':'#666');
+  mG.addColorStop(.7,active?'#aaa':'#555');
+  mG.addColorStop(1,active?'#666':'#333');
+
+  // barrel body
+  cx.fillStyle=mG;
+  rr(-s*.88,-s*.12,s*.88,s*.2,s*.04);
+  cx.fill();
+  // barrel shine
+  cx.fillStyle=active?'rgba(255,255,255,.14)':'rgba(255,255,255,.04)';
+  rr(-s*.86,-s*.1,s*.84,s*.06,s*.025);
+  cx.fill();
+  // barrel end ring
+  cx.fillStyle=active?'#777':'#333';
+  rr(-s*.92,-s*.13,s*.07,s*.22,s*.025);
+  cx.fill();
+
+  // frame top plate
+  cx.fillStyle=mG;
+  rr(-s*.14,-s*.12,s*.44,s*.44,s*.06);
+  cx.fill();
+
+  // cylinder space (where cylinder sits in frame)
+  cx.fillStyle='rgba(0,0,0,.7)';
+  cx.beginPath();
+  cx.arc(-s*.0,s*.1,s*.2,0,Math.PI*2);
+  cx.fill();
+
+  // ejector rod
+  cx.strokeStyle=active?'#888':'#444';
+  cx.lineWidth=s*.04;
+  cx.beginPath(); cx.moveTo(-s*.05,s*.1); cx.lineTo(-s*.52,s*.1); cx.stroke();
+
+  // trigger guard
+  cx.strokeStyle=active?'#777':'#333';
+  cx.lineWidth=s*.038;
+  cx.beginPath();
+  cx.arc(s*.07,s*.22,s*.14,0,Math.PI);
+  cx.stroke();
+
+  // trigger
+  cx.strokeStyle=active?'#bbb':'#555';
+  cx.lineWidth=s*.028;
+  cx.beginPath();
+  cx.moveTo(s*.07,s*.1);
+  cx.lineTo(s*.03,s*.22);
+  cx.stroke();
+
+  // hammer
+  cx.fillStyle=active?'#888':'#444';
+  rr(-s*.14,-s*.22,s*.14,s*.13,s*.03);
+  cx.fill();
+  cx.fillStyle=active?'rgba(200,200,200,.2)':'rgba(100,100,100,.1)';
+  rr(-s*.13,-s*.21,s*.12,s*.05,s*.02);
+  cx.fill();
+
+  // handle
+  const hG=cx.createLinearGradient(s*.05,s*.3,s*.38,s*.65);
+  hG.addColorStop(0,active?'#4a3525':'#251a10');
+  hG.addColorStop(1,active?'#2a1a0e':'#100b05');
+  cx.fillStyle=hG;
+  cx.beginPath();
+  cx.moveTo(s*.05,s*.3);
+  cx.lineTo(s*.36,s*.3);
+  cx.lineTo(s*.46,s*.58);
+  cx.lineTo(s*.3,s*.68);
+  cx.lineTo(-s*.06,s*.52);
+  cx.lineTo(s*.05,s*.3);
+  cx.fill();
+  // grip lines
+  if(active){
+    cx.save(); cx.globalAlpha=.4;
+    cx.strokeStyle='rgba(0,0,0,.8)'; cx.lineWidth=s*.013;
+    for(let i=0;i<5;i++){
+      cx.beginPath();
+      cx.moveTo(s*.07,s*(.35+i*.065));
+      cx.lineTo(s*.4,s*(.32+i*.065));
+      cx.stroke();
+    }
+    cx.restore();
+  }
+  // handle butt
+  cx.fillStyle=active?'#333':'#1a1a1a';
+  rr(-s*.06,s*.45,s*.38,s*.1,s*.05);
+  cx.fill();
+
+  // muzzle glow when active
+  if(active){
+    const mg=cx.createRadialGradient(-s*.88,0,0,-s*.88,0,s*.14);
+    mg.addColorStop(0,'rgba(201,168,76,.18)');
+    mg.addColorStop(1,'rgba(201,168,76,0)');
+    cx.fillStyle=mg;
+    cx.beginPath(); cx.arc(-s*.88,0,s*.14,0,Math.PI*2); cx.fill();
+  }
+
+  cx.restore();
+}
+
+/* ───────────────────── CYLINDER ───────────────────── */
+function drawCylinder(ox,oy,R,angle,fatal,selC,active){
+  const N=6, CR=R*.3;
+  const t=Date.now();
+  cx.save();
+  cx.translate(ox,oy);
+  cx.globalAlpha=active?1:.32;
+
+  // outer ring glow
+  if(active){
+    const glow=cx.createRadialGradient(0,0,R*.6,0,0,R*1.7);
+    glow.addColorStop(0,'rgba(201,168,76,.05)');
+    glow.addColorStop(.5,'rgba(201,168,76,.04)');
+    glow.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=glow;
+    cx.beginPath(); cx.arc(0,0,R*1.7,0,Math.PI*2); cx.fill();
+  }
+
+  // outer metal ring
+  const oG=cx.createRadialGradient(-R*.25,-R*.3,R*.05,0,0,R);
+  oG.addColorStop(0,active?'#999':'#4a4a4a');
+  oG.addColorStop(.6,active?'#666':'#333');
+  oG.addColorStop(1,active?'#3a3a3a':'#1e1e1e');
+  cx.fillStyle=oG;
+  cx.beginPath(); cx.arc(0,0,R,0,Math.PI*2); cx.fill();
+
+  // outer ring border
+  cx.strokeStyle=active?'rgba(200,200,200,.35)':'rgba(100,100,100,.2)';
+  cx.lineWidth=1.5;
+  cx.beginPath(); cx.arc(0,0,R,0,Math.PI*2); cx.stroke();
+
+  // inner face
+  const iG=cx.createRadialGradient(-R*.1,-R*.15,0,0,0,R*.85);
+  iG.addColorStop(0,active?'#2a2a2a':'#151515');
+  iG.addColorStop(1,active?'#111':'#080808');
+  cx.fillStyle=iG;
+  cx.beginPath(); cx.arc(0,0,R*.9,0,Math.PI*2); cx.fill();
+
+  // sheen arc
+  cx.save();
+  cx.globalAlpha=active?.25:.08;
+  cx.strokeStyle='rgba(220,220,220,1)';
+  cx.lineWidth=2;
+  cx.beginPath(); cx.arc(0,-R*.05,R*.72,Math.PI*1.1,Math.PI*1.85); cx.stroke();
+  cx.restore();
+
+  // groove lines radiating
+  cx.save();
+  cx.globalAlpha=active?.15:.07;
+  cx.strokeStyle='rgba(180,180,180,1)';
+  cx.lineWidth=.8;
+  for(let i=0;i<N;i++){
+    const a=angle+(i/N)*Math.PI*2;
+    cx.beginPath();
+    cx.moveTo(Math.cos(a)*R*.3,Math.sin(a)*R*.3);
+    cx.lineTo(Math.cos(a)*R*.88,Math.sin(a)*R*.88);
+    cx.stroke();
+  }
+  cx.restore();
+
+  // chambers
+  for(let i=0;i<N;i++){
+    const ca=angle+(i/N)*Math.PI*2;
+    const px2=Math.cos(ca)*R*.62, py2=Math.sin(ca)*R*.62;
+    const isFatal=fatal.includes(i);
+    const isSel=(i===selC);
+
+    // fatal pulsing glow
+    if(isFatal&&active){
+      cx.save();
+      cx.globalAlpha=.22+Math.sin(t/450)*.13;
+      const fg=cx.createRadialGradient(px2,py2,0,px2,py2,CR*1.8);
+      fg.addColorStop(0,'rgba(220,0,0,.5)');
+      fg.addColorStop(1,'rgba(220,0,0,0)');
+      cx.fillStyle=fg;
+      cx.beginPath(); cx.arc(px2,py2,CR*1.8,0,Math.PI*2); cx.fill();
+      cx.restore();
+    }
+
+    // chamber bg
+    if(isFatal){
+      const fg2=cx.createRadialGradient(px2-CR*.2,py2-CR*.2,0,px2,py2,CR);
+      fg2.addColorStop(0,active?'#881818':'#3a0808');
+      fg2.addColorStop(1,active?'#3a0000':'#180000');
+      cx.fillStyle=fg2;
+    } else {
+      const sg=cx.createRadialGradient(px2-CR*.3,py2-CR*.3,0,px2,py2,CR);
+      sg.addColorStop(0,active?'#303030':'#181818');
+      sg.addColorStop(1,active?'#0e0e0e':'#060606');
+      cx.fillStyle=sg;
+    }
+    cx.beginPath(); cx.arc(px2,py2,CR,0,Math.PI*2); cx.fill();
+
+    // chamber ring
+    cx.strokeStyle=isFatal
+      ? (active?(isSel?'#ff5555':'#aa2222'):'#550000')
+      : (active?(isSel?'#ddd':'#555'):'#2a2a2a');
+    cx.lineWidth=isSel?2.5:1.2;
+    cx.beginPath(); cx.arc(px2,py2,CR,0,Math.PI*2); cx.stroke();
+
+    // selected highlight
+    if(isSel){
+      const sh=cx.createRadialGradient(px2-CR*.35,py2-CR*.35,0,px2,py2,CR);
+      sh.addColorStop(0,isFatal?'rgba(255,120,120,.45)':'rgba(255,255,255,.3)');
+      sh.addColorStop(1,'rgba(0,0,0,0)');
+      cx.fillStyle=sh;
+      cx.beginPath(); cx.arc(px2,py2,CR,0,Math.PI*2); cx.fill();
+    }
+
+    // inner hole dot
+    cx.fillStyle=isFatal
+      ? (active?'rgba(180,30,30,.7)':'rgba(60,0,0,.5)')
+      : 'rgba(0,0,0,.6)';
+    cx.beginPath(); cx.arc(px2,py2,CR*.45,0,Math.PI*2); cx.fill();
+  }
+
+  // center pin
+  const cpG=cx.createRadialGradient(-R*.04,-R*.04,0,0,0,R*.12);
+  cpG.addColorStop(0,active?'#ddd':'#888');
+  cpG.addColorStop(1,active?'#888':'#444');
+  cx.fillStyle=cpG;
+  cx.beginPath(); cx.arc(0,0,R*.12,0,Math.PI*2); cx.fill();
+  cx.strokeStyle=active?'rgba(255,255,255,.25)':'rgba(150,150,150,.1)';
+  cx.lineWidth=1;
+  cx.beginPath(); cx.arc(0,0,R*.12,0,Math.PI*2); cx.stroke();
+
+  // indicator arrow (12 o'clock)
+  if(active){
+    cx.save();
+    cx.globalAlpha=.9;
+    const ay=-(R+16);
+    cx.fillStyle='#c9a84c';
+    cx.beginPath();
+    cx.moveTo(0,ay+2);
+    cx.lineTo(-7,ay-10);
+    cx.lineTo(7,ay-10);
+    cx.closePath();
+    cx.fill();
+    // glow on arrow
+    cx.globalAlpha=.35+Math.sin(t/350)*.25;
+    const arG=cx.createRadialGradient(0,ay-4,0,0,ay-4,14);
+    arG.addColorStop(0,'rgba(201,168,76,.9)');
+    arG.addColorStop(1,'rgba(201,168,76,0)');
+    cx.fillStyle=arG;
+    cx.beginPath(); cx.arc(0,ay-4,14,0,Math.PI*2); cx.fill();
+    cx.restore();
+  }
+
+  cx.restore();
+}
+
+/* ───────────────────── SCENE ───────────────────── */
+function layout(){
+  const R  = Math.min(W*.1, H*.115, 68);
+  const sy = H*.47;
+  return {
+    R, sy,
+    p1x: W*.26,
+    p2x: W*.74,
+    cy1: sy+R*1.35,
+    cy2: sy+R*1.35,
+  };
+}
+
+function drawScene(){
+  cx.save();
+  cx.translate(G.shakeX,G.shakeY);
+
+  drawBg();
+  drawParts();
+
+  const {R,sy,p1x,p2x,cy1,cy2} = layout();
+  const gs = R*.95;
+
+  const p1act = G.player===0 && !G.over;
+  const p2act = G.player===1 && !G.over;
+
+  // guns
+  drawGun(p1x, sy-R*.2, gs, p1act, false);
+  drawGun(p2x, sy-R*.2, gs, p2act, true);
+
+  // cylinders
+  drawCylinder(p1x,cy1,R,G.angle[0],G.fatal[0],G.selCham[0],p1act);
+  drawCylinder(p2x,cy2,R,G.angle[1],G.fatal[1],G.selCham[1],p2act);
+
+  // player labels on canvas
+  [0,1].forEach(pi=>{
+    const px=pi===0?p1x:p2x;
+    const isAct=pi===0?p1act:p2act;
+    cx.save();
+    cx.globalAlpha=isAct?1:.38;
+    cx.fillStyle=isAct?'#c9a84c':'#666';
+    cx.font=`${Math.round(W*.016)}px Georgia`;
+    cx.textAlign='center';
+    cx.fillText(`JUGADOR ${pi+1}`, px, sy-R*.95);
+    cx.restore();
+  });
+
+  cx.restore();
+
+  // shake decay
+  if(G.shake>0){
+    G.shake*=.87;
+    G.shakeX=(Math.random()-.5)*G.shake;
+    G.shakeY=(Math.random()-.5)*G.shake;
+    if(G.shake<.15){G.shake=0;G.shakeX=0;G.shakeY=0;}
+  }
+}
+
+/* ───────────────────── FLASH ───────────────────── */
+const flashEl=document.getElementById('flash');
+function flash(col,op){
+  flashEl.style.background=col;
+  flashEl.style.transition='opacity 0.04s';
+  flashEl.style.opacity=op;
+  setTimeout(()=>{
+    flashEl.style.transition='opacity 0.6s ease';
+    flashEl.style.opacity=0;
+  },70);
+}
+
+/* ───────────────────── UI ───────────────────── */
+function ui(field,val){document.getElementById(field).textContent=val}
+function cls(id,cls,state){document.getElementById(id).classList[state?'add':'remove'](cls)}
+
+function refreshHUD(){
+  ui('s1',G.surv[0]); ui('s2',G.surv[1]); ui('srnd',G.round);
+  cls('pp1','active', G.player===0&&!G.over);
+  cls('pp2','active', G.player===1&&!G.over);
+}
+
+function setMsg(main,sub){
+  document.getElementById('msg-main').textContent=main;
+  document.getElementById('msg-sub').textContent=sub;
+}
+
+function setTurn(txt){ui('turn-ind',txt)}
+
+function showDeath(pNum){
+  document.getElementById('death-box').style.display='block';
+  document.getElementById('msg-box').style.display='none';
+  document.getElementById('turn-ind').textContent='';
+  document.getElementById('death-sub').textContent=
+    `Jugador ${pNum} perdió.  La cámara fatal decidió.`;
+  cls(`pp${pNum}`,'eliminated',true);
+  cls(`pp${pNum}`,'active',false);
+}
+
+/* ───────────────────── SPIN ───────────────────── */
+function spin(){
+  if(G.spinning||G.over) return;
+  G.spinning=true;
+
+  const p=G.player;
+  const survives=Math.random()<.66;
+
+  // choose landing chamber
+  const safe=[0,1,2,3,4,5].filter(i=>!G.fatal[p].includes(i));
+  const pool=survives?safe:G.fatal[p];
+  const land=pool[Math.floor(Math.random()*pool.length)];
+  G.selCham[p]=land;
+
+  // target angle: chamber 'land' at 12 o'clock (−π/2)
+  const tgt=-(Math.PI/2)-(land/6)*Math.PI*2;
+  const revs=8+Math.floor(Math.random()*5);
+  const totalDelta=tgt-G.angle[p]+revs*Math.PI*2;
+  const startA=G.angle[p];
+  const dur=3600+Math.random()*900; // ms
+
+  const btnMain=document.getElementById('btn-main');
+  btnMain.textContent='Girando...';
+  btnMain.disabled=true;
+
+  playClicks(dur/1000);
+
+  const t0=performance.now();
+  function step(now){
+    const el=Math.min(now-t0,dur);
+    const prog=el/dur;
+    // cubic ease-out
+    const ease=1-Math.pow(1-prog,3);
+    G.angle[p]=startA+totalDelta*ease;
+    if(prog<1){requestAnimationFrame(step);}
+    else{
+      G.angle[p]=tgt;
+      endTurn(p,survives,land);
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function endTurn(p,surv,cham){
+  G.spinning=false;
+  const {p1x,p2x,cy1,cy2,R}=layout();
+  const px=p===0?p1x:p2x, py=p===0?cy1:cy2;
+  const pName=`Jugador ${p+1}`;
+
+  if(surv){
+    G.surv[p]++;
+    refreshHUD();
+    emit(px,py,35,'rgba(100,210,130,.9)',6,1.3);
+    emit(px,py,18,'rgba(201,168,76,.9)',4,.8);
+    flash('rgba(80,200,100,.35)',.38);
+    playSurvive();
+    setMsg(`${pName} sobrevivió`, 'La cámara estaba vacía.  Por ahora.');
+    setTurn(`${pName} sobrevivió — Cambiando turno…`);
+    setTimeout(()=>{
+      G.player=1-p;
+      G.round++;
+      refreshHUD();
+      setTurn(`Turno del Jugador ${G.player+1}`);
+      setMsg('','');
+      const b=document.getElementById('btn-main');
+      b.textContent='Jugar turno'; b.disabled=false;
+    },2600);
+  } else {
+    G.over=true;
+    G.shake=28;
+    emit(px,py,90,'rgba(210,15,15,.95)',9,2.2);
+    emit(px,py,50,'rgba(180,0,0,.75)',6,1.6);
+    emit(px,py,25,'rgba(255,80,80,.8)',4,1);
+    flash('#ff0000',.92);
+    setTimeout(()=>flash('#ffffff',.55),110);
+    setTimeout(()=>flash('#990000',.45),260);
+    playDeath();
+    setTimeout(()=>showDeath(p+1),420);
+    const b=document.getElementById('btn-main');
+    b.textContent='Reiniciar duelo';
+    b.disabled=false;
+    b.onclick=resetGame;
+  }
+}
+
+/* ───────────────────── RESET ───────────────────── */
+function resetGame(){
+  G.player=0; G.round=1; G.surv=[0,0];
+  G.spinning=false; G.over=false;
+  G.angle=[0,0]; G.selCham=[0,0];
+  G.parts=[]; G.shake=0; G.shakeX=0; G.shakeY=0;
+  G.fatal=[rndFatal(),rndFatal()];
+
+  document.getElementById('death-box').style.display='none';
+  document.getElementById('msg-box').style.display='block';
+  document.getElementById('turn-ind').textContent='Turno del Jugador 1';
+
+  ['pp1','pp2'].forEach(id=>{
+    document.getElementById(id).classList.remove('eliminated','active');
+  });
+  document.getElementById('pp1').classList.add('active');
+
+  setMsg('El duelo comienza',
+    'Cada turno tiene la misma promesa:  66 % de vida,  34 % de final.');
+
+  const b=document.getElementById('btn-main');
+  b.textContent='Jugar turno'; b.disabled=false;
+  b.onclick=spin;
+
+  refreshHUD();
+}
+
+/* ───────────────────── CONTROLS ───────────────────── */
+document.getElementById('btn-main').addEventListener('click', spin);
+document.getElementById('btn-reset').addEventListener('click', resetGame);
+document.getElementById('btn-snd').addEventListener('click',()=>{
+  sfxOn=!sfxOn;
+  document.getElementById('btn-snd').textContent=`Sonido: ${sfxOn?'ON':'OFF'}`;
+});
+
+document.addEventListener('keydown', e=>{
+  if(e.code==='Space'){
+    e.preventDefault();
+    if(G.over) resetGame(); else spin();
+  }
+  if(e.code==='KeyR') resetGame();
+});
+
+/* ───────────────────── LOOP ───────────────────── */
+function loop(){
+  cx.clearRect(0,0,W,H);
+  emitDust();
+  updateParts();
+  drawScene();
+  requestAnimationFrame(loop);
+}
+
+resetGame();
+loop();
+</script>
+</body>
+</html>
